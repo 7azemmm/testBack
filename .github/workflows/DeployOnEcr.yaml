@@ -1,9 +1,10 @@
-name: Backend Build & Push
+name: Backend Build & Push to Ecr
 
 on:
   push:
     branches:
       - "master"   
+  workflow_dispatch:   
 
 jobs:
   build-push:
