@@ -33,7 +33,7 @@ jobs:
 
       - name: Build & Push Backend
         run: |
-          BACKEND_TAG="${{ github.event.inputs.backend_tag }}"
+          BACKEND_TAG="backend"
           if [ -z "$BACKEND_TAG" ]; then
             BACKEND_TAG=backend
           fi
