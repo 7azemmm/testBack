@@ -1,18 +1,21 @@
-name: Backend Build & Push to Ecr
+name: Backend Build & Push to ECR
 
 on:
   push:
     branches:
-      - "master"   
-  workflow_dispatch:   
+      - "master"
+      - "feat_*"
+  workflow_dispatch:    
 
 jobs:
-  build-push:
+  build-push-deploy:
     runs-on: ubuntu-latest
     steps:
+     
       - name: Checkout code
         uses: actions/checkout@v3
 
+     
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -20,12 +23,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+     
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      
       - name: Build, tag, and push backend image
         run: |
-          IMAGE_TAG=backend
+          IMAGE_TAG=backend   # use branch name as tag
           docker build -t ${{ secrets.ECR_REGISTRY }}/hazem/backend:$IMAGE_TAG .
           docker push ${{ secrets.ECR_REGISTRY }}/hazem/backend:$IMAGE_TAG
+
+     
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+     
+      - name: Deploy using Docker Compose
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd /app
+            docker-compose pull backend
+            docker-compose up -d backend
+          EOF
