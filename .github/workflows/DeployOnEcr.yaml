@@ -33,12 +33,12 @@ jobs:
 
       - name: Build & Push Backend
         run: |
-          BACKEND_TAG="backend"
+          BACKEND_TAG="${{ github.event.inputs.backend_tag }}"
           if [ -z "$BACKEND_TAG" ]; then
             BACKEND_TAG=backend
           fi
 
-          docker build -t ${{ secrets.ECR_REGISTRY }}/hazem/backend:$BACKEND_TAG ./backend
+          docker build -t ${{ secrets.ECR_REGISTRY }}/hazem/backend:$BACKEND_TAG .
           docker push ${{ secrets.ECR_REGISTRY }}/hazem/backend:$BACKEND_TAG
 
       - name: Setup SSH
@@ -49,7 +49,6 @@ jobs:
       - name: Deploy Backend on EC2
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            # Authenticate EC2 with ECR (token expires every 12h)
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
               | sudo docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
