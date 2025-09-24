@@ -5,17 +5,20 @@ on:
     branches:
       - "master"
       - "feat_*"
-  workflow_dispatch:    
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Tag for Docker image'
+        required: false
+        default: 'backend'
 
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
     steps:
-     
       - name: Checkout code
         uses: actions/checkout@v3
 
-     
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -23,25 +26,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-     
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      
       - name: Build, tag, and push backend image
         run: |
-          IMAGE_TAG=backend   # use branch name as tag
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG=backend
+          fi
           docker build -t ${{ secrets.ECR_REGISTRY }}/hazem/backend:$IMAGE_TAG .
           docker push ${{ secrets.ECR_REGISTRY }}/hazem/backend:$IMAGE_TAG
 
-     
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-     
       - name: Deploy using Docker Compose
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
