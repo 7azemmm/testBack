@@ -1,4 +1,4 @@
-name: Backend Build & Push to ECR
+name: Backend Build & Deploy to ECR
 
 on:
   push:
@@ -7,14 +7,15 @@ on:
       - "feat_*"
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: 'Tag for Docker image'
+      backend_tag:
+        description: "Tag for backend image"
         required: false
-        default: 'backend'
+        default: "backend"
 
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -30,23 +31,28 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push backend image
+      - name: Build & Push Backend
         run: |
-          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
-          if [ -z "$IMAGE_TAG" ]; then
-            IMAGE_TAG=backend
+          BACKEND_TAG="${{ github.event.inputs.backend_tag }}"
+          if [ -z "$BACKEND_TAG" ]; then
+            BACKEND_TAG=backend
           fi
-          docker build -t ${{ secrets.ECR_REGISTRY }}/hazem/backend:$IMAGE_TAG .
-          docker push ${{ secrets.ECR_REGISTRY }}/hazem/backend:$IMAGE_TAG
+
+          docker build -t ${{ secrets.ECR_REGISTRY }}/hazem/backend:$BACKEND_TAG ./backend
+          docker push ${{ secrets.ECR_REGISTRY }}/hazem/backend:$BACKEND_TAG
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Deploy using Docker Compose
+      - name: Deploy Backend on EC2
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            # Authenticate EC2 with ECR (token expires every 12h)
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+              | sudo docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+
             cd /app
             sudo docker-compose pull backend
             sudo docker-compose up -d backend
